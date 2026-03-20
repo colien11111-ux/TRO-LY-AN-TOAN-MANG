@@ -1,0 +1,444 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<title>SafeNet AI 7.0</title>
+
+<style>
+
+body{
+margin:0;
+font-family:Arial;
+background:#eef2ff;
+display:flex;
+justify-content:center;
+align-items:center;
+height:100vh;
+}
+
+#phone{
+width:420px;
+background:white;
+border-radius:20px;
+box-shadow:0 10px 30px rgba(0,0,0,0.3);
+overflow:hidden;
+}
+
+header{
+background:linear-gradient(45deg,#6366f1,#4f46e5);
+color:white;
+text-align:center;
+padding:15px;
+font-size:20px;
+}
+
+#menu{
+display:grid;
+grid-template-columns:1fr 1fr;
+gap:10px;
+padding:15px;
+}
+
+button{
+padding:12px;
+border:none;
+border-radius:10px;
+background:#6366f1;
+color:white;
+cursor:pointer;
+}
+
+button:hover{
+background:#4338ca;
+}
+
+#screen{
+padding:15px;
+height:360px;
+overflow:auto;
+background:#f8fafc;
+}
+
+textarea,input{
+width:100%;
+padding:10px;
+margin-top:10px;
+border-radius:6px;
+border:1px solid #ccc;
+}
+
+</style>
+</head>
+
+<body>
+
+<div id="phone">
+
+<header>
+🛡 TRỢ LÝ AN TOÀN MẠNG
+</header>
+
+<div id="menu">
+
+<button onclick="detect()">Phân tích</button>
+<button onclick="support()">Tâm sự</button>
+
+<button onclick="scenario()">Tình huống</button>
+<button onclick="scamChat()">Luyện chat</button>
+
+<button onclick="skill()">Điểm kỹ năng</button>
+<button onclick="ranking()">Kỹ năng an toàn mạng</button>
+
+</div>
+
+<div id="screen">
+
+Xin chào! Đây là trợ lý an toàn mạng cho học sinh do bạn Đặng Thị Ngọc Diễm xây dựng.
+
+</div>
+
+</div>
+
+<script>
+
+let skillScore = 100
+
+function detect(){
+
+document.getElementById("screen").innerHTML=`
+
+<h3>Phân tích tin nhắn</h3>
+
+<textarea id="msg" placeholder="Dán tin nhắn cần kiểm tra"></textarea>
+
+<button onclick="runDetect()">Phân tích</button>
+
+<div id="result"></div>
+
+`
+
+}
+
+function runDetect(){
+
+let text=document.getElementById("msg").value.toLowerCase()
+
+let result="🟢 Tin nhắn có vẻ an toàn."
+
+if(text.includes("ảnh"))
+result="⚠️ Người lạ xin ảnh cá nhân."
+
+if(text.includes("số điện thoại")||text.includes("sdt"))
+result="⚠️ Không nên cung cấp số điện thoại."
+
+if(text.includes("địa chỉ"))
+result="⚠️ Không nên chia sẻ địa chỉ."
+
+if(text.includes("otp"))
+result="🚨 Không cung cấp mã OTP."
+
+if(text.includes("link"))
+result="⚠️ Có thể là link lừa đảo."
+
+if(text.includes("gặp"))
+result="🚨 Không nên gặp người lạ."
+
+if(text.includes("tài xỉu")||text.includes("cá cược"))
+result="🚨 Đây có thể là dụ dỗ cờ bạc."
+
+skillScore -=5
+if(skillScore<0) skillScore=0
+
+document.getElementById("result").innerHTML=result
+
+}
+
+function support(){
+
+document.getElementById("screen").innerHTML=`
+
+<h3>💬 Tâm sự với SafeNet AI</h3>
+
+<div id="chatBox" style="
+height:220px;
+overflow:auto;
+background:white;
+border:1px solid #ccc;
+padding:10px;
+border-radius:8px;
+"></div>
+
+<input id="userMsg" placeholder="Nhập điều bạn muốn chia sẻ">
+
+<button onclick="sendMsg()">Gửi</button>
+
+`
+
+document.getElementById("chatBox").innerHTML+=
+"<div><b>🤖 SafeNet AI:</b> Xin chào! Bạn có thể chia sẻ vấn đề trên mạng.</div>"
+
+}
+
+function aiReply(text){
+
+text=text.toLowerCase()
+
+if(text.includes("số điện thoại"))
+return "⚠️ Bạn không nên cung cấp số điện thoại cho người lạ."
+
+if(text.includes("ảnh"))
+return "⚠️ Không nên gửi ảnh cá nhân."
+
+if(text.includes("địa chỉ"))
+return "⚠️ Không nên chia sẻ địa chỉ."
+
+if(text.includes("otp"))
+return "🚨 Không cung cấp mã OTP."
+
+if(text.includes("người lạ"))
+return "⚠️ Không nên cung cấp thông tin cá nhân."
+
+return "Bạn có thể nói rõ hơn để tôi giúp bạn."
+
+}
+
+function sendMsg(){
+
+let input=document.getElementById("userMsg")
+let text=input.value
+
+if(text=="") return
+
+let chat=document.getElementById("chatBox")
+
+chat.innerHTML+="<div><b>👦 Bạn:</b> "+text+"</div>"
+
+let reply=aiReply(text)
+
+setTimeout(()=>{
+
+chat.innerHTML+="<div style='color:#4f46e5'><b>🤖 SafeNet AI:</b> "+reply+"</div>"
+
+chat.scrollTop=chat.scrollHeight
+
+},500)
+
+input.value=""
+
+}
+
+const scenarios=[
+
+"Người lạ xin số điện thoại của bạn.",
+"Người lạ tặng skin game.",
+"Người lạ gửi link nhận thưởng.",
+"Người lạ rủ gặp ngoài đời.",
+"Người lạ xin ảnh."
+
+]
+
+function scenario(){
+
+let random=scenarios[Math.floor(Math.random()*scenarios.length)]
+
+document.getElementById("screen").innerHTML=`
+
+<h3>Tình huống</h3>
+
+<p>${random}</p>
+
+<button onclick="wrong()">Làm theo</button>
+
+<button onclick="correct()">Từ chối</button>
+
+`
+
+}
+
+function correct(){
+
+skillScore +=10
+if(skillScore>100) skillScore=100
+
+alert("✅ Chính xác!")
+
+scenario()
+
+}
+
+function wrong(){
+
+skillScore -=10
+if(skillScore<0) skillScore=0
+
+alert("❌ Cẩn thận!")
+
+scenario()
+
+}
+
+let chatIndex=0
+let chatScore=0
+
+const chatCases=[
+
+"Anh tặng em skin game miễn phí, gửi số điện thoại cho anh nhé.",
+"Em có thể gửi ảnh của em cho anh xem không?",
+"Cho anh xin địa chỉ nhà em nhé.",
+"Anh có quà cho em, em ra gặp anh được không?",
+"Anh gửi link nhận thưởng, bấm vào đi.",
+"Cho anh xin Facebook của em nhé.",
+"Em cho anh số điện thoại của bố mẹ được không?",
+"Anh chuyển tiền cho em nếu em gửi mã OTP.",
+"Anh đang ở gần trường em, em ra đây anh cho quà.",
+"Em gửi ảnh cá nhân cho anh nhé."
+
+]
+
+function scamChat(){
+
+chatIndex=0
+chatScore=0
+
+document.getElementById("screen").innerHTML=`
+
+<h3>🎭 Luyện chat nhận diện lừa đảo</h3>
+
+<div id="chatBox" style="
+height:220px;
+overflow:auto;
+background:white;
+border:1px solid #ccc;
+padding:10px;
+border-radius:8px;
+"></div>
+
+<input id="reply" placeholder="Bạn sẽ trả lời thế nào?">
+
+<button onclick="sendReply()">Gửi</button>
+
+`
+
+nextChat()
+
+}
+
+function nextChat(){
+
+let chat=document.getElementById("chatBox")
+
+if(chatIndex>=chatCases.length){
+
+chat.innerHTML+=`
+<div style="color:#4f46e5">
+🤖 SafeNet AI: Bạn đã hoàn thành bài luyện tập.
+<br>Điểm: ${chatScore}/100
+</div>
+`
+
+return
+}
+
+chat.innerHTML+=`
+<div style="color:red">
+<b>👤 Người lạ:</b> ${chatCases[chatIndex]}
+</div>
+`
+
+chat.scrollTop=chat.scrollHeight
+
+}
+
+function sendReply(){
+
+let input=document.getElementById("reply")
+let text=input.value.toLowerCase()
+
+if(text=="") return
+
+let chat=document.getElementById("chatBox")
+
+chat.innerHTML+=`<div><b>👦 Bạn:</b> ${input.value}</div>`
+
+if(
+text.includes("không")||
+text.includes("từ chối")||
+text.includes("không gửi")
+){
+
+chatScore+=10
+
+chat.innerHTML+=`
+<div style="color:green">
+🤖 SafeNet AI: ✅ Chính xác! Bạn đã từ chối người lạ.
+</div>
+`
+
+}else{
+
+chat.innerHTML+=`
+<div style="color:red">
+🤖 SafeNet AI: ❌ Nguy hiểm! Không nên làm theo người lạ.
+</div>
+`
+
+}
+
+chatIndex++
+
+input.value=""
+
+setTimeout(nextChat,800)
+
+chat.scrollTop=chat.scrollHeight
+
+}
+
+function skill(){
+
+let badge="🛡 Người dùng an toàn"
+
+if(skillScore>=90) badge="🏆 Cyber Guardian"
+if(skillScore<50) badge="🚨 Nguy cơ cao"
+
+document.getElementById("screen").innerHTML=`
+
+<h3>📊 Điểm kỹ năng</h3>
+
+<h1>${skillScore}/100</h1>
+
+<h2>${badge}</h2>
+
+`
+
+}
+
+function ranking(){
+
+document.getElementById("screen").innerHTML=`
+
+<h3>🛡 Kỹ năng an toàn mạng</h3>
+
+<ul>
+
+<li>🔒 Không chia sẻ mật khẩu</li>
+<li>📱 Không cung cấp số điện thoại cho người lạ</li>
+<li>🏠 Không chia sẻ địa chỉ nhà</li>
+<li>🖼 Không gửi ảnh cá nhân</li>
+<li>🔑 Không cung cấp mã OTP</li>
+<li>🔗 Cẩn thận với link lạ</li>
+<li>👤 Không gặp người quen qua mạng</li>
+<li>🎮 Cảnh giác tặng quà trong game</li>
+<li>💰 Tránh các trò cá cược online</li>
+<li>📢 Báo người lớn khi gặp nguy hiểm</li>
+
+</ul>
+
+`
+
+}
+
+</script>
+
+</body>
+</html>
