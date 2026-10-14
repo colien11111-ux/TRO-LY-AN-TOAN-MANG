@@ -1,487 +1,103 @@
-<!DOCTYPE html>
-<html lang="vi">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Khu Vườn Lớp 9/13 - Gamification Class Manager</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800&display=swap" rel="stylesheet">
-    
-    <script>
-        tailwind.config = {
-            theme: {
-                extend: { fontFamily: { sans: ['Nunito', 'sans-serif'] } }
-            }
-        }
-    </script>
-    <style>
-        ::-webkit-scrollbar { width: 8px; height: 8px; }
-        ::-webkit-scrollbar-track { background: #f1f1f1; border-radius: 4px; }
-        ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
-        ::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
-        .tree-enter-active, .tree-leave-active { transition: all 0.5s ease; }
-        .tree-enter-from, .tree-leave-to { opacity: 0; transform: scale(0.8) translateY(20px); }
-        @keyframes pop { 0% { transform: scale(1); } 50% { transform: scale(1.15); } 100% { transform: scale(1); } }
-        .animate-pop { animation: pop 0.4s ease-out; }
-    </style>
-</head>
-<body class="bg-stone-100 text-slate-800 overflow-hidden font-sans">
-
-<div id="app" class="h-screen w-full relative">
-
-    <!-- MÀN HÌNH ĐANG TẢI DỮ LIỆU TỪ GOOGLE SHEETS -->
-    <div v-if="!isDataLoaded" class="absolute inset-0 bg-white z-[100] flex flex-col items-center justify-center">
-        <i class="fa-solid fa-cloud-arrow-down text-5xl text-blue-500 mb-4 animate-bounce"></i>
-        <h2 class="text-xl font-bold text-slate-700 animate-pulse">Đang đồng bộ dữ liệu lớp học...</h2>
-    </div>
-
-    <!-- MÀN HÌNH 1: ĐĂNG NHẬP CHỌN QUYỀN -->
-    <div v-else-if="appMode === 'login'" class="absolute inset-0 bg-green-50 z-50 flex flex-col items-center justify-center p-4">
-        <div class="mb-8 text-center">
-            <div class="w-20 h-20 bg-green-500 rounded-2xl flex items-center justify-center text-white text-4xl shadow-xl shadow-green-200 mx-auto mb-4">
-                <i class="fa-solid fa-leaf"></i>
-            </div>
-            <h1 class="text-3xl font-extrabold text-green-800">Khu Vườn Lớp 9/13</h1>
-            <p class="text-slate-600 font-semibold mt-2">Hành trình trưởng thành - Kết nối Nhà trường & Gia đình</p>
-        </div>
-
-        <div class="flex flex-col md:flex-row gap-6 w-full max-w-2xl">
-            <!-- Card Phụ huynh -->
-            <div class="flex-1 bg-white p-6 rounded-2xl shadow-lg border-2 border-slate-100 hover:border-blue-300 transition">
-                <div class="text-center mb-4">
-                    <i class="fa-solid fa-users text-4xl text-blue-500 mb-2"></i>
-                    <h2 class="font-bold text-lg text-slate-800">Dành cho Phụ Huynh</h2>
-                    <p class="text-xs text-slate-500">Mật khẩu mặc định: <b>123456</b></p>
-                </div>
-                <input type="text" v-model="parentCodeInput" placeholder="Nhập mã PH (VD: PH01)..." class="w-full px-4 py-3 border border-slate-300 rounded-xl mb-3 text-center font-bold uppercase focus:outline-none focus:border-blue-500">
-                <input type="password" v-model="parentPasswordInput" @keyup.enter="loginParent" placeholder="Mật khẩu phụ huynh..." class="w-full px-4 py-3 border border-slate-300 rounded-xl mb-4 text-center font-bold focus:outline-none focus:border-blue-500">
-                <button @click="loginParent" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 rounded-xl transition">Đăng nhập xem điểm</button>
-            </div>
-
-            <!-- Card Giáo viên -->
-            <div class="flex-1 bg-white p-6 rounded-2xl shadow-lg border-2 border-slate-100 hover:border-green-300 transition">
-                <div class="text-center mb-4">
-                    <i class="fa-solid fa-chalkboard-user text-4xl text-green-500 mb-2"></i>
-                    <h2 class="font-bold text-lg text-slate-800">Dành cho Giáo Viên</h2>
-                    <p class="text-xs text-slate-500">Nhập mật khẩu quản lý lớp</p>
-                </div>
-                <div class="h-[60px] hidden md:block"></div> 
-                <input type="password" v-model="teacherPasswordInput" @keyup.enter="loginTeacher" placeholder="Mật khẩu giáo viên..." class="w-full px-4 py-3 border border-slate-300 rounded-xl mb-4 text-center font-bold focus:outline-none focus:border-green-500">
-                <button @click="loginTeacher" class="w-full bg-green-600 hover:bg-green-700 text-white font-bold py-3 rounded-xl transition">Quản lý khu vườn</button>
-            </div>
-        </div>
-        
-        <div v-if="loginError" class="mt-6 bg-red-100 text-red-600 px-4 py-2 rounded-lg font-bold text-sm animate-pulse">
-            {{ loginError }}
-        </div>
-    </div>
-
-    <!-- MÀN HÌNH 2: GIAO DIỆN PHỤ HUYNH -->
-    <div v-else-if="appMode === 'parent'" class="h-full w-full flex flex-col bg-[url('https://www.transparenttextures.com/patterns/wood-pattern.png')] bg-amber-50 relative">
-        <header class="bg-white/90 backdrop-blur shadow-sm border-b border-blue-100 px-6 py-4 flex justify-between items-center z-10 flex-wrap gap-4">
-            <div class="flex items-center gap-3">
-                <div class="w-10 h-10 bg-blue-500 rounded-xl flex items-center justify-center text-white text-xl shadow-lg shadow-blue-200"><i class="fa-solid fa-users"></i></div>
-                <div>
-                    <h1 class="text-xl font-extrabold text-blue-800">Cổng Thông Tin Phụ Huynh</h1>
-                    <p class="text-xs font-semibold text-slate-500">Đang xem học sinh: <span class="text-blue-600 font-bold">{{ loggedInStudent.name }}</span></p>
-                </div>
-            </div>
-            <div class="flex items-center gap-2">
-                <div class="flex items-center gap-2 bg-white px-3 py-1.5 rounded-lg shadow-sm border border-blue-200 mr-2">
-                    <i class="fa-regular fa-calendar-days text-blue-600"></i>
-                    <span class="text-sm font-bold text-blue-800 hidden sm:inline">Xem điểm:</span>
-                    <select v-model="parentViewWeek" class="text-sm border-0 bg-transparent font-bold text-slate-700 focus:ring-0 cursor-pointer outline-none">
-                        <option value="none" disabled>-- Chọn thời gian --</option>
-                        <option value="total">Tổng kết 36 Tuần</option>
-                        <optgroup v-for="m in 9" :key="'pm'+m" :label="'--- Tháng ' + schoolMonths[m-1] + ' ---'">
-                            <option v-for="w in 4" :key="'pw'+((m-1)*4 + w)" :value="(m-1)*4 + w">Tuần {{ (m-1)*4 + w }}</option>
-                            <option :value="'month_' + m" class="text-blue-700 font-black bg-blue-50">Tổng kết Tháng {{ schoolMonths[m-1] }}</option>
-                        </optgroup>
-                    </select>
-                </div>
-                
-                <button @click="showChangePassword = true" class="bg-blue-100 hover:bg-blue-200 text-blue-700 px-4 py-2 rounded-lg font-bold text-sm transition" title="Đổi mật khẩu đăng nhập"><i class="fa-solid fa-key"></i></button>
-                <button @click="logout" class="bg-slate-200 hover:bg-slate-300 text-slate-700 px-4 py-2 rounded-lg font-bold text-sm transition" title="Đăng xuất"><i class="fa-solid fa-right-from-bracket"></i></button>
-            </div>
-        </header>
-
-        <div class="flex-1 overflow-y-auto p-4 md:p-8 flex flex-col items-center justify-start pt-10">
-            <div v-if="parentViewWeek !== 'none'" class="w-full flex flex-col lg:flex-row items-start justify-center gap-8 max-w-6xl mx-auto">
-                <div class="w-full lg:w-3/5 flex flex-col gap-6 order-1">
-                    <div class="w-full bg-indigo-50 p-6 rounded-3xl shadow-lg border-2 border-indigo-200">
-                        <div class="flex justify-between items-center mb-4 border-b border-indigo-100 pb-3">
-                            <h3 class="font-bold text-base text-indigo-800 uppercase"><i class="fa-solid fa-robot mr-2"></i>AI Nhận xét {{ getParentViewLabel() }}</h3>
-                            <button @click="getParentSimulatedAIFeedback" :disabled="isParentAILoading" class="bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 px-4 rounded-lg text-sm transition flex items-center gap-2 shadow-sm">
-                                <i class="fa-solid fa-wand-magic-sparkles"></i> 
-                                {{ isParentAILoading ? 'Đang phân tích...' : 'Phân tích' }}
-                            </button>
-                        </div>
-                        <div v-if="parentAIFeedback" class="bg-white p-5 rounded-xl border border-indigo-100 text-base text-slate-700 italic shadow-sm leading-relaxed">
-                            "{{ parentAIFeedback }}"
-                        </div>
-                        <div v-else class="text-center text-indigo-400 italic text-sm py-4 bg-white/50 rounded-xl">
-                            Bấm nút "Phân tích" để Trợ lý AI đánh giá chi tiết quá trình rèn luyện.
-                        </div>
-                    </div>
-
-                    <div class="w-full bg-white p-6 rounded-3xl shadow-lg border-2 border-slate-200 mb-10 lg:mb-0">
-                        <h3 class="font-bold text-base text-slate-700 uppercase mb-4 border-b pb-3"><i class="fa-solid fa-list-check mr-2"></i>Chi tiết hoạt động ({{ getParentViewLabel() }})</h3>
-                        <div class="space-y-3 max-h-80 overflow-y-auto pr-2">
-                            <div v-if="parentViewHistory.length === 0" class="text-center text-slate-400 italic text-sm py-6">Chưa có hoạt động nào được ghi nhận trong thời gian này.</div>
-                            <div v-for="(log, idx) in parentViewHistory" :key="idx" class="flex justify-between items-center text-sm bg-slate-50 p-4 rounded-xl border border-slate-100 hover:border-blue-200 transition">
-                                <div>
-                                    <span class="text-xs font-bold bg-slate-200 text-slate-600 px-2 py-1 rounded mr-3">Tuần {{ log.week }}</span>
-                                    <span class="font-semibold text-slate-700 text-base">{{ log.action }}</span>
-                                </div>
-                                <span :class="['font-black whitespace-nowrap text-xl', log.points > 0 ? 'text-green-600' : 'text-red-600']">
-                                    {{ log.points > 0 ? '+' : '' }}{{ log.points }}
-                                </span>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                <div class="w-full lg:w-2/5 flex flex-col items-center order-2">
-                    <div class="bg-white rounded-3xl p-8 shadow-2xl border-4 border-blue-100 w-full text-center transform transition-all duration-300">
-                        <h2 class="text-2xl font-black text-slate-800 mb-2">{{ loggedInStudent.name }}</h2>
-                        <div class="text-sm font-bold text-blue-600 bg-blue-50 inline-block px-3 py-1 rounded-full mb-6">{{ getParentViewLabel() }}</div>
-                        
-                        <div class="relative h-56 w-full bg-gradient-to-b from-sky-50 to-orange-50 rounded-2xl mb-6 flex flex-col items-center justify-end overflow-hidden border-2 border-slate-100 pb-4">
-                            <div :key="getPlantStage(getStudentDisplayPoints(loggedInStudent, parentViewWeek))" :class="['z-10 transition-transform duration-500 drop-shadow-lg relative', getIconColor(getStudentDisplayPoints(loggedInStudent, parentViewWeek))]">
-                                <i :class="getPlantIcon(getStudentDisplayPoints(loggedInStudent, parentViewWeek))"></i>
-                                <div v-if="getStudentDisplayPoints(loggedInStudent, parentViewWeek) > 100 && getStudentDisplayPoints(loggedInStudent, parentViewWeek) <= 120" class="absolute inset-0 z-20">
-                                    <i class="fa-solid fa-spa text-pink-400 text-[18px] absolute top-2 -left-2"></i>
-                                    <i class="fa-solid fa-spa text-pink-300 text-[14px] absolute top-8 -right-1"></i>
-                                    <i class="fa-solid fa-spa text-pink-500 text-[20px] absolute -top-1 left-4"></i>
-                                </div>
-                                <div v-if="getStudentDisplayPoints(loggedInStudent, parentViewWeek) > 120" class="absolute inset-0 z-20">
-                                    <i class="fa-solid fa-apple-whole text-red-500 text-[20px] absolute top-2 -left-2"></i>
-                                    <i class="fa-solid fa-apple-whole text-red-500 text-[16px] absolute top-8 -right-1"></i>
-                                    <i class="fa-solid fa-apple-whole text-red-600 text-[24px] absolute -top-1 left-4"></i>
-                                </div>
-                            </div>
-                            <div class="w-full h-8 bg-[#8B5A2B] rounded-t-[50%] absolute bottom-0 z-0"></div>
-                        </div>
-
-                        <div class="bg-slate-50 p-5 rounded-2xl border border-slate-200">
-                            <div class="text-sm font-bold text-slate-500 uppercase tracking-wider mb-1">Giai đoạn hiện tại</div>
-                            <div class="text-2xl font-black text-blue-600 mb-4">{{ getPlantStage(getStudentDisplayPoints(loggedInStudent, parentViewWeek)) }}</div>
-                            <div class="text-sm font-bold text-slate-500 uppercase tracking-wider mb-1">Điểm thi đua</div>
-                            <div :class="['text-5xl font-black', getPointsColor(getStudentDisplayPoints(loggedInStudent, parentViewWeek))]">{{ getStudentDisplayPoints(loggedInStudent, parentViewWeek) }} đ</div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <div v-else class="w-full max-w-2xl bg-white p-10 rounded-3xl shadow-lg border-2 border-dashed border-blue-200 text-center mt-10">
-                <i class="fa-regular fa-calendar-check text-6xl text-blue-300 mb-4"></i>
-                <h2 class="text-2xl font-bold text-slate-700 mb-2">Chào mừng Phụ huynh</h2>
-                <p class="text-slate-500">Vui lòng <b>chọn Tuần hoặc Tháng</b> ở thanh công cụ góc trên bên phải để bắt đầu xem chi tiết điểm thi đua và nhận xét của con.</p>
-            </div>
-        </div>
-
-        <!-- MODAL ĐỔI MẬT KHẨU PHỤ HUYNH -->
-        <div v-if="showChangePassword" class="fixed inset-0 bg-slate-900/50 z-50 flex items-center justify-center p-4 backdrop-blur-sm">
-            <div class="bg-white rounded-3xl p-6 w-full max-w-md shadow-2xl">
-                <div class="flex justify-between items-center mb-6 border-b pb-3">
-                    <h3 class="text-xl font-bold text-slate-800">Đổi Mật Khẩu Đăng Nhập</h3>
-                    <button @click="showChangePassword = false" class="text-slate-400 hover:text-red-500 transition"><i class="fa-solid fa-xmark text-xl"></i></button>
-                </div>
-                <div class="space-y-4">
-                    <div>
-                        <label class="text-xs font-bold text-slate-500 uppercase">Mật khẩu hiện tại</label>
-                        <input type="password" v-model="oldPass" placeholder="Nhập mật khẩu cũ..." class="w-full px-4 py-3 border border-slate-300 rounded-xl focus:outline-none focus:border-blue-500 mt-1">
-                    </div>
-                    <div>
-                        <label class="text-xs font-bold text-slate-500 uppercase">Mật khẩu mới</label>
-                        <input type="password" v-model="newPass" placeholder="Ít nhất 4 ký tự..." class="w-full px-4 py-3 border border-slate-300 rounded-xl focus:outline-none focus:border-blue-500 mt-1">
-                    </div>
-                    <div>
-                        <label class="text-xs font-bold text-slate-500 uppercase">Xác nhận mật khẩu mới</label>
-                        <input type="password" v-model="confirmPass" @keyup.enter="changePassword" placeholder="Nhập lại mật khẩu mới..." class="w-full px-4 py-3 border border-slate-300 rounded-xl focus:outline-none focus:border-blue-500 mt-1">
-                    </div>
-                </div>
-                <div v-if="passMsg" :class="['mt-4 p-3 rounded-xl text-sm font-bold text-center', passMsgType === 'error' ? 'bg-red-100 text-red-600' : 'bg-green-100 text-green-700']">
-                    {{ passMsg }}
-                </div>
-                <button @click="changePassword" class="w-full mt-6 bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 rounded-xl transition">Lưu Mật Khẩu</button>
-            </div>
-        </div>
-
-    </div>
-
-    <!-- MÀN HÌNH 3: GIAO DIỆN GIÁO VIÊN -->
-    <div v-else-if="appMode === 'teacher'" class="flex h-full w-full relative">
-        <!-- BÊN TRÁI: VƯỜN CÂY -->
-        <div class="flex-1 flex flex-col h-full bg-[url('https://www.transparenttextures.com/patterns/wood-pattern.png')] bg-amber-50">
-            <header class="bg-white/90 backdrop-blur shadow-sm border-b border-green-100 px-6 py-4 flex justify-between items-center z-10">
-                <div class="flex items-center gap-3">
-                    <div class="w-10 h-10 bg-green-500 rounded-xl flex items-center justify-center text-white text-xl shadow-lg shadow-green-200"><i class="fa-solid fa-leaf"></i></div>
-                    <div>
-                        <h1 class="text-2xl font-extrabold text-green-800 leading-tight">Khu Vườn Lớp 9/13</h1>
-                        <p class="text-sm text-green-600 font-semibold">Quyền: Giáo Viên Chủ Nhiệm</p>
-                    </div>
-                </div>
-                
-                <div class="flex items-center gap-4">
-                    <div class="flex items-center gap-2 bg-white px-3 py-1.5 rounded-lg shadow-sm border border-green-200">
-                        <i class="fa-regular fa-calendar-days text-green-600"></i>
-                        <span class="text-sm font-bold text-green-800 hidden sm:inline">Hiển thị:</span>
-                        <select v-model="currentViewWeek" class="text-sm border-0 bg-transparent font-bold text-slate-700 focus:ring-0 cursor-pointer outline-none">
-                            <option value="total">Tổng kết 36 Tuần</option>
-                            <optgroup v-for="m in 9" :key="'g'+m" :label="'--- Tháng ' + schoolMonths[m-1] + ' ---'">
-                                <option v-for="w in 4" :key="(m-1)*4 + w" :value="(m-1)*4 + w">Tuần {{ (m-1)*4 + w }}</option>
-                                <option :value="'month_' + m" class="text-green-700 font-black bg-green-50">Tổng kết Tháng {{ schoolMonths[m-1] }}</option>
-                            </optgroup>
-                        </select>
-                    </div>
-                    <button @click="logout" class="bg-slate-200 hover:bg-slate-300 text-slate-700 px-4 py-1.5 rounded-lg font-bold text-sm transition"><i class="fa-solid fa-right-from-bracket"></i> Đăng xuất</button>
-                </div>
-            </header>
-
-            <main class="flex-1 overflow-y-auto p-6">
-                <div class="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-7 gap-4">
-                    <div v-for="(student, index) in students" :key="student.id" 
-                         @click="selectStudent(student)"
-                         :class="['relative bg-white rounded-2xl p-3 cursor-pointer transition-all duration-300 border-2 hover:shadow-xl group', 
-                                  selectedStudent && selectedStudent.id === student.id ? 'border-green-500 shadow-lg shadow-green-200 transform scale-105' : 'border-transparent shadow hover:-translate-y-1']">
-                        
-                        <div v-if="getStudentDisplayPoints(student, currentViewWeek) < 0" class="absolute -top-2 -right-2 bg-red-500 text-white text-xs w-6 h-6 rounded-full flex items-center justify-center font-bold shadow animate-pulse">!</div>
-
-                        <div class="text-center mb-2">
-                            <div class="text-xs text-slate-400 font-bold flex justify-center gap-1">HS {{ index + 1 }} <span class="bg-blue-100 text-blue-600 px-1 rounded">{{ student.parentCode }}</span></div>
-                            <div class="text-sm font-bold text-slate-700 truncate px-1" :title="student.name">{{ student.name }}</div>
-                        </div>
-
-                        <div class="relative h-28 w-full bg-gradient-to-b from-sky-50 to-orange-50 rounded-xl mb-3 flex flex-col items-center justify-end overflow-hidden border border-slate-100 pb-2 text-4xl">
-                            <div :key="getPlantStage(getStudentDisplayPoints(student, currentViewWeek))"
-                                 :class="['z-10 transition-transform duration-500 drop-shadow-md relative', student.animating ? 'animate-pop' : '', getIconColor(getStudentDisplayPoints(student, currentViewWeek))]">
-                                <i :class="getPlantIcon(getStudentDisplayPoints(student, currentViewWeek))"></i>
-                                <div v-if="getStudentDisplayPoints(student, currentViewWeek) > 100 && getStudentDisplayPoints(student, currentViewWeek) <= 120" class="absolute inset-0 z-20">
-                                    <i class="fa-solid fa-spa text-pink-400 text-[14px] absolute top-2 -left-2 drop-shadow-sm"></i>
-                                    <i class="fa-solid fa-spa text-pink-300 text-[12px] absolute top-6 -right-1 drop-shadow-sm"></i>
-                                    <i class="fa-solid fa-spa text-pink-500 text-[16px] absolute -top-1 left-3 drop-shadow-sm"></i>
-                                </div>
-                                <div v-if="getStudentDisplayPoints(student, currentViewWeek) > 120" class="absolute inset-0 z-20">
-                                    <i class="fa-solid fa-apple-whole text-red-500 text-[16px] absolute top-2 -left-2 drop-shadow-md"></i>
-                                    <i class="fa-solid fa-apple-whole text-red-500 text-[14px] absolute top-6 -right-1 drop-shadow-md"></i>
-                                    <i class="fa-solid fa-apple-whole text-red-600 text-[18px] absolute -top-1 left-3 drop-shadow-md"></i>
-                                </div>
-                            </div>
-                            <div class="w-full h-4 bg-[#8B5A2B] rounded-t-[50%] absolute bottom-0 z-0"></div>
-                        </div>
-
-                        <div class="flex justify-between items-center">
-                            <span :class="['font-extrabold text-lg', getPointsColor(getStudentDisplayPoints(student, currentViewWeek))]">
-                                {{ getStudentDisplayPoints(student, currentViewWeek) }} <span class="text-xs font-normal text-slate-500">đ</span>
-                            </span>
-                            <span class="text-[10px] font-bold px-2 py-1 bg-slate-100 rounded-full text-slate-600 truncate max-w-[70px]">
-                                {{ getPlantStage(getStudentDisplayPoints(student, currentViewWeek)) }}
-                            </span>
-                        </div>
-                    </div>
-                </div>
-            </main>
-        </div>
-
-        <!-- BÊN PHẢI: BẢNG ĐIỀU KHIỂN GIÁO VIÊN -->
-        <div class="w-96 bg-white border-l border-slate-200 flex flex-col shadow-2xl z-20">
-            <div class="p-5 border-b border-slate-100 bg-slate-50 flex justify-between items-center">
-                <h2 class="font-bold text-lg text-slate-800">Bảng Chấm Điểm</h2>
-                <div class="flex gap-2">
-                    <button @click="openManageClassModal" class="text-xs bg-blue-100 text-blue-700 px-3 py-1.5 rounded-lg font-bold hover:bg-blue-200 transition-colors" title="Nhập danh sách lớp mới"><i class="fa-solid fa-users-gear mr-1"></i> DS Lớp</button>
-                    <button @click="resetData" class="text-xs bg-slate-200 text-slate-700 px-3 py-1.5 rounded-lg font-bold hover:bg-slate-300 transition-colors" title="Xóa toàn bộ điểm"><i class="fa-solid fa-trash-can mr-1"></i> Xóa điểm</button>
-                </div>
-            </div>
-
-            <div class="p-5 border-b border-slate-100">
-                <div v-if="selectedStudent" class="bg-green-50 rounded-xl p-4 border border-green-200 flex gap-4 items-center mb-3">
-                    <div class="w-16 h-16 bg-white rounded-full flex items-center justify-center shadow-inner overflow-hidden border-2 border-green-300 text-4xl">
-                        <div class="relative">
-                            <i :class="[getPlantIcon(getStudentDisplayPoints(selectedStudent, currentViewWeek)), getIconColor(getStudentDisplayPoints(selectedStudent, currentViewWeek)).replace('text-5xl', '').replace('text-6xl', '')]"></i>
-                        </div>
-                    </div>
-                    <div class="flex-1 overflow-hidden">
-                        <div class="text-sm font-semibold text-green-600">Đang xem: <span class="bg-green-200 text-green-800 px-1 rounded ml-1">{{ selectedStudent.parentCode }}</span></div>
-                        <div class="font-extrabold text-xl text-slate-800 truncate">{{ selectedStudent.name }}</div>
-                        <div class="text-sm font-bold mt-1">
-                            <span class="bg-green-200 text-green-800 px-2 py-0.5 rounded text-xs mr-1">{{ getViewLabel() }}</span> 
-                            <span :class="getPointsColor(getStudentDisplayPoints(selectedStudent, currentViewWeek))">{{ getStudentDisplayPoints(selectedStudent, currentViewWeek) }} điểm</span>
-                        </div>
-                    </div>
-                </div>
-
-                <div v-if="selectedStudent" class="bg-indigo-50 border border-indigo-200 rounded-xl p-3">
-                    <button @click="getSimulatedAIFeedback" :disabled="isAILoading" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 rounded-lg text-sm transition flex justify-center items-center gap-2">
-                        <i class="fa-solid fa-wand-magic-sparkles"></i> 
-                        {{ isAILoading ? 'AI đang phân tích...' : 'Trợ lý AI nhận xét' }}
-                    </button>
-                    <div v-if="aiFeedback" class="mt-3 p-3 bg-white rounded-lg border border-indigo-100 text-sm text-slate-700 max-h-40 overflow-y-auto italic shadow-sm leading-relaxed">
-                        "{{ aiFeedback }}"
-                    </div>
-                </div>
-
-                <div v-if="!selectedStudent" class="min-h-[140px] flex flex-col items-center justify-center text-slate-400 border-2 border-dashed border-slate-200 rounded-xl bg-slate-50/50 p-4">
-                    <i class="fa-solid fa-hand-pointer text-3xl mb-2 text-slate-300"></i>
-                    <span class="text-sm font-semibold text-center">Click chọn học sinh để chấm điểm</span>
-                </div>
-            </div>
-
-            <div class="flex-1 overflow-y-auto p-5 relative">
-                <div :class="{'opacity-50 pointer-events-none': !selectedStudent}">
-                    <div v-if="typeof currentViewWeek === 'string'" class="bg-amber-100 text-amber-800 p-4 rounded-xl text-sm font-bold text-center border border-amber-200 flex flex-col items-center mb-4">
-                        <i class="fa-solid fa-triangle-exclamation text-2xl mb-2"></i>
-                        Vui lòng chọn 1 <b>tuần cụ thể</b> ở menu trên để cộng điểm.
-                    </div>
-                    <div v-else>
-                        <div class="flex gap-2 mb-4">
-                            <button @click="activeTab = 'positive'" :class="['flex-1 py-2 rounded-lg font-bold text-sm transition', activeTab === 'positive' ? 'bg-green-500 text-white shadow-md' : 'bg-slate-100 text-slate-500']">Tích cực</button>
-                            <button @click="activeTab = 'negative'" :class="['flex-1 py-2 rounded-lg font-bold text-sm transition', activeTab === 'negative' ? 'bg-red-500 text-white shadow-md' : 'bg-slate-100 text-slate-500']">Vi phạm</button>
-                        </div>
-                        <div v-show="activeTab === 'positive'" class="space-y-2">
-                            <button v-for="action in positiveActions" :key="action.name" @click="addPoints(action)" class="w-full flex justify-between items-center p-3 bg-white border border-green-200 rounded-xl hover:bg-green-50 transition text-left">
-                                <span class="text-sm font-semibold text-slate-700">{{ action.name }}</span>
-                                <span class="bg-green-100 text-green-700 font-bold px-2 py-1 rounded-lg text-xs">+{{ action.points }}</span>
-                            </button>
-                        </div>
-                        <div v-show="activeTab === 'negative'" class="space-y-2">
-                            <button v-for="action in negativeActions" :key="action.name" @click="addPoints(action)" class="w-full flex justify-between items-center p-3 bg-white border border-red-200 rounded-xl hover:bg-red-50 transition text-left">
-                                <span class="text-sm font-semibold text-slate-700">{{ action.name }}</span>
-                                <span class="bg-red-100 text-red-700 font-bold px-2 py-1 rounded-lg text-xs">{{ action.points }}</span>
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            </div>
-            
-            <div class="h-48 border-t border-slate-100 bg-slate-50 p-4 flex flex-col">
-                <h3 class="font-bold text-xs text-slate-500 uppercase tracking-wider mb-3">Nhật ký {{ getViewLabel() }}</h3>
-                <div class="flex-1 overflow-y-auto space-y-2 pr-2">
-                    <div v-for="(log, idx) in displayHistory" :key="idx" class="flex justify-between items-start text-xs border-b border-slate-200 pb-2">
-                        <div class="flex-1 pr-2">
-                            <span class="font-bold text-slate-700">{{ log.studentName }}</span>
-                            <span v-if="typeof currentViewWeek === 'string'" class="ml-1 text-[10px] bg-slate-200 text-slate-600 px-1.5 py-0.5 rounded">T{{ log.week }}</span>
-                            <span class="text-slate-500 block truncate">{{ log.action }}</span>
-                        </div>
-                        <span :class="['font-bold whitespace-nowrap', log.points > 0 ? 'text-green-600' : 'text-red-600']">{{ log.points > 0 ? '+' : '' }}{{ log.points }}</span>
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <!-- MODAL QUẢN LÝ DANH SÁCH LỚP -->
-        <div v-if="showManageClassModal" class="fixed inset-0 bg-slate-900/50 z-50 flex items-center justify-center p-4 backdrop-blur-sm">
-            <div class="bg-white rounded-3xl p-6 w-full max-w-2xl shadow-2xl flex flex-col max-h-[90vh]">
-                <div class="flex justify-between items-center mb-4 border-b pb-3">
-                    <h3 class="text-xl font-bold text-slate-800"><i class="fa-solid fa-users-gear mr-2 text-blue-600"></i> Quản lý Danh sách Lớp</h3>
-                    <button @click="showManageClassModal = false" class="text-slate-400 hover:text-red-500 transition"><i class="fa-solid fa-xmark text-xl"></i></button>
-                </div>
-                <div class="mb-4 text-sm text-slate-600 bg-blue-50 p-3 rounded-lg border border-blue-100">
-                    Nhập danh sách học sinh mới vào ô bên dưới (mỗi học sinh 1 dòng). <br>
-                    <b class="text-red-600">LƯU Ý:</b> Cập nhật danh sách sẽ xóa toàn bộ điểm số, lịch sử hiện tại và thiết lập lại mật khẩu Phụ huynh về mặc định (123456).
-                </div>
-                <textarea v-model="newStudentListText" rows="10" placeholder="Nguyễn Văn A&#10;Trần Thị B..." class="w-full flex-1 px-4 py-3 border border-slate-300 rounded-xl focus:outline-none focus:border-blue-500 resize-none mb-4 font-semibold text-slate-700 leading-relaxed"></textarea>
-                <div class="flex justify-end gap-3 mt-auto">
-                    <button @click="showManageClassModal = false" class="bg-slate-200 hover:bg-slate-300 text-slate-700 font-bold py-2.5 px-6 rounded-xl transition">Hủy</button>
-                    <button @click="importNewClass" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2.5 px-6 rounded-xl transition shadow-md">Cập nhật Danh Sách</button>
-                </div>
-            </div>
-        </div>
-
-    </div>
-</div>
-
 <script>
-    // ĐƯỜNG LINK CỦA BẠN ĐÃ ĐƯỢC TÍCH HỢP VÀO ĐÂY
-    const API_URL = 'https://script.google.com/macros/s/AKfycbxXPU4K0ZZkptKb23tWnOaJmKpVzaMqvSIWBDncJTqrUON-ZgxxdvN8PT6yXbOy2K4z/exec'; 
-
     const { createApp, ref, computed, reactive, watch, onMounted } = Vue;
+
+    // ==========================================
+    // DÁN LINK GOOGLE APPS SCRIPT VÀO ĐÂY
+    const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbxQAa30o7s5P3IPAxq82e45Mf3Yt4Jxk44gfpjriqLODNJltm2IPDaSUy4vW3LxNmZmPQ/exec'; 
+    // ==========================================
+
+    const rawNames = [
+        "Lê Thúy An", "Nguyễn Thị Vân An", "Lê Văn Chinh", "Trương Thành Công", "Dương Viết Dũng", "Phạm Thùy Duyên", "Mai Xuân Đạt", "Lê Văn Hải", 
+        "Huỳnh Trung Hiếu", "Trần Văn Huỳnh Hiếu", "Nguyễn Hữu Hòa", "Ngô Gia Khánh", "Nguyễn Xuân Bảo Khánh", "Lê Tự Quốc Kiệt", "Lương Thị Thư Kiều", "Lê Vũ Duy Lâm", 
+        "Nguyễn Đặng Trà Linh", "Võ Văn Phi Long", "Lý Phạm Bảo Ngọc", "Lê Văn Nhật", "Huỳnh Thị Yến Nhi", "Võ Yến Nhi", "Phan Thị Quỳnh Như", "Nguyễn Thị Xuân Phúc", 
+        "Trần Văn Tú Tài", "Lương Thị Thu Thảo", "Trần Văn Thịnh", "Lê Thị Thủy", "Võ Thị Hoài Thư", "Ngô Thị Thùy Trang", "Nguyễn Thị Thanh Trúc", "Nguyễn Lê Anh Trường", 
+        "Nguyễn Lê Nhật Trường", "Nguyễn Hữu Tú", "Trần Văn Tuấn", "Nguyễn Đức Duy Tường", "Phạm Đức Vinh", "Lê Đức Quốc Vũ", "Nguyễn Thị Kiều Vy", "Trần Quang Vỹ", "Võ Minh Ý"
+    ];
 
     createApp({
         setup() {
             const schoolMonths = ["09", "10", "11", "12", "01", "02", "03", "04", "05"];
-
-            const isDataLoaded = ref(false); 
             const appMode = ref('login'); 
             const teacherPasswordInput = ref('');
             const parentCodeInput = ref('');
             const parentPasswordInput = ref(''); 
             const loginError = ref('');
             const loggedInStudent = ref(null);
-
             const currentViewWeek = ref(1);
             const parentViewWeek = ref('none'); 
             
             const showChangePassword = ref(false);
-            const oldPass = ref('');
-            const newPass = ref('');
-            const confirmPass = ref('');
-            const passMsg = ref('');
-            const passMsgType = ref('');
+            const oldPass = ref(''); const newPass = ref(''); const confirmPass = ref('');
+            const passMsg = ref(''); const passMsgType = ref('');
 
             const showManageClassModal = ref(false);
             const newStudentListText = ref('');
+            
+            const isSyncing = ref(false); // Trạng thái đồng bộ dữ liệu
 
             const createDefaultWeeks = () => { let wp = {}; for(let w = 1; w <= 36; w++) wp[w] = 0; return wp; };
 
-            const students = reactive([]); 
+            let initialStudents = rawNames.map((name, i) => {
+                const code = 'PH' + (i < 9 ? '0' + (i + 1) : (i + 1));
+                return { id: i + 1, name: name, parentCode: code, parentPassword: '123456', weeklyPoints: createDefaultWeeks(), animating: false };
+            });
+
+            const students = reactive(initialStudents);
             const history = ref([]);
 
-            const loadDataFromCloud = async () => {
+            // ==========================================
+            // HÀM GIAO TIẾP VỚI GOOGLE SHEETS
+            // ==========================================
+            const loadDataFromDatabase = async () => {
                 try {
-                    const res = await fetch(API_URL);
-                    const data = await res.json();
+                    loginError.value = "Đang tải dữ liệu lớp học...";
+                    const response = await fetch(SCRIPT_URL + '?action=getData');
+                    const data = await response.json();
                     
-                    if (data.students) {
-                        const cloudStudents = JSON.parse(data.students);
-                        students.splice(0, students.length, ...cloudStudents);
-                    } else {
-                        // Nếu trang tính trống, tải danh sách rỗng hoặc mẫu
-                        const demoNames = ["Học sinh 1", "Học sinh 2", "Học sinh 3"];
-                        const demoStudents = demoNames.map((name, i) => {
-                            return { id: i + 1, name: name, parentCode: 'PH0' + (i + 1), parentPassword: '123456', weeklyPoints: createDefaultWeeks(), animating: false };
-                        });
-                        students.splice(0, students.length, ...demoStudents);
+                    if (data.students && data.students.length > 0) {
+                        students.splice(0, students.length, ...data.students);
                     }
                     if (data.history) {
-                        history.value = JSON.parse(data.history);
+                        history.value = data.history;
                     }
-                    isDataLoaded.value = true;
-                } catch (e) {
-                    console.error("Lỗi mạng khi tải dữ liệu", e);
-                    alert('Không kết nối được với Google Sheets. Có thể đường link chưa đúng hoặc kết nối mạng bị gián đoạn.');
-                    isDataLoaded.value = true;
+                    loginError.value = "";
+                } catch (error) {
+                    console.error("Lỗi tải dữ liệu:", error);
+                    loginError.value = "Lỗi kết nối máy chủ. Vui lòng thử lại sau.";
                 }
             };
 
-            const saveDataToCloud = async () => {
+            const saveDataToDatabase = async () => {
+                isSyncing.value = true;
                 try {
-                    await fetch(API_URL, {
+                    // Dùng text/plain để vượt qua lỗi CORS của Google Script
+                    await fetch(SCRIPT_URL, {
                         method: 'POST',
+                        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
                         body: JSON.stringify({
+                            action: 'saveData',
                             students: students,
                             history: history.value
                         })
                     });
-                } catch (e) {
-                    console.error("Lỗi khi đồng bộ lên mạng", e);
+                } catch (error) {
+                    console.error("Lỗi lưu dữ liệu:", error);
+                    alert("Cảnh báo: Không thể lưu dữ liệu lên hệ thống!");
                 }
+                isSyncing.value = false;
             };
 
             onMounted(() => {
-                loadDataFromCloud();
-                
-                setInterval(() => {
-                    if(appMode.value === 'parent') loadDataFromCloud();
-                }, 5000);
+                loadDataFromDatabase();
             });
 
-            watch(parentViewWeek, () => {
-                parentAIFeedback.value = '';
-            });
+            // Tự động lưu lên Google Sheets mỗi khi mảng history thay đổi (khi cộng/trừ điểm)
+            watch(history, () => {
+                if(appMode.value === 'teacher') saveDataToDatabase();
+            }, { deep: true });
 
+            // ==========================================
+            
             const loginTeacher = () => {
                 if (teacherPasswordInput.value === '123456A@') {
                     appMode.value = 'teacher';
@@ -489,7 +105,11 @@
                 } else loginError.value = 'Mật khẩu giáo viên không đúng!';
             };
 
-            const loginParent = () => {
+            const loginParent = async () => {
+                loginError.value = "Đang kiểm tra dữ liệu...";
+                // Tải lại dữ liệu mới nhất trước khi phụ huynh đăng nhập (đề phòng GV vừa chấm)
+                await loadDataFromDatabase(); 
+
                 const code = parentCodeInput.value.toUpperCase().trim();
                 const pass = parentPasswordInput.value.trim();
                 const student = students.find(s => s.parentCode === code);
@@ -505,44 +125,36 @@
                         loginError.value = 'Mật khẩu phụ huynh không đúng!';
                     }
                 } else {
-                    loginError.value = 'Mã phụ huynh không tồn tại.';
+                    loginError.value = 'Mã phụ huynh không tồn tại. Vui lòng nhập từ PH01 đến PH41.';
                 }
             };
 
             const logout = () => {
                 appMode.value = 'login';
-                teacherPasswordInput.value = '';
-                parentCodeInput.value = '';
-                parentPasswordInput.value = '';
-                loggedInStudent.value = null;
-                selectedStudent.value = null;
+                teacherPasswordInput.value = ''; parentCodeInput.value = ''; parentPasswordInput.value = '';
+                loggedInStudent.value = null; selectedStudent.value = null;
+                loadDataFromDatabase(); // Cập nhật lại dữ liệu mới nhất khi ra màn hình chờ
             };
 
-            const changePassword = () => {
+            const changePassword = async () => {
                 if (oldPass.value !== loggedInStudent.value.parentPassword) {
-                    passMsg.value = 'Mật khẩu hiện tại không đúng!';
-                    passMsgType.value = 'error';
-                    return;
+                    passMsg.value = 'Mật khẩu hiện tại không đúng!'; passMsgType.value = 'error'; return;
                 }
                 if (newPass.value.length < 4) {
-                    passMsg.value = 'Mật khẩu mới phải từ 4 ký tự trở lên!';
-                    passMsgType.value = 'error';
-                    return;
+                    passMsg.value = 'Mật khẩu mới phải từ 4 ký tự trở lên!'; passMsgType.value = 'error'; return;
                 }
                 if (newPass.value !== confirmPass.value) {
-                    passMsg.value = 'Xác nhận mật khẩu không khớp!';
-                    passMsgType.value = 'error';
-                    return;
+                    passMsg.value = 'Xác nhận mật khẩu không khớp!'; passMsgType.value = 'error'; return;
                 }
 
                 const st = students.find(s => s.id === loggedInStudent.value.id);
                 if(st) {
                     st.parentPassword = newPass.value;
+                    passMsg.value = 'Đang lưu mật khẩu...'; passMsgType.value = 'success';
+                    
+                    await saveDataToDatabase(); // Lưu mật khẩu mới lên mây
+                    
                     passMsg.value = 'Đổi mật khẩu thành công!';
-                    passMsgType.value = 'success';
-                    
-                    saveDataToCloud();
-                    
                     setTimeout(() => {
                         showChangePassword.value = false;
                         oldPass.value = ''; newPass.value = ''; confirmPass.value = ''; passMsg.value = '';
@@ -555,25 +167,14 @@
                 showManageClassModal.value = true;
             };
 
-            const importNewClass = () => {
-                if(confirm("CẢNH BÁO: Thao tác này sẽ XÓA TOÀN BỘ dữ liệu điểm số, lịch sử và mật khẩu Phụ huynh hiện tại. Bạn có chắc chắn muốn thay đổi danh sách lớp?")) {
+            const importNewClass = async () => {
+                if(confirm("CẢNH BÁO: Thao tác này sẽ XÓA TOÀN BỘ dữ liệu điểm số, lịch sử và mật khẩu Phụ huynh hiện tại trên toàn hệ thống. Bạn chắc chắn chứ?")) {
                     const names = newStudentListText.value.split('\n').map(n => n.trim()).filter(n => n.length > 0);
-                    
-                    if(names.length === 0) {
-                        alert("Danh sách học sinh không được để trống!");
-                        return;
-                    }
+                    if(names.length === 0) { alert("Danh sách học sinh không được để trống!"); return; }
                     
                     const newStudentsList = names.map((name, i) => {
                         const code = 'PH' + (i < 9 ? '0' + (i + 1) : (i + 1));
-                        return { 
-                            id: i + 1, 
-                            name: name, 
-                            parentCode: code, 
-                            parentPassword: '123456', 
-                            weeklyPoints: createDefaultWeeks(), 
-                            animating: false 
-                        };
+                        return { id: i + 1, name: name, parentCode: code, parentPassword: '123456', weeklyPoints: createDefaultWeeks(), animating: false };
                     });
 
                     students.splice(0, students.length, ...newStudentsList);
@@ -581,17 +182,15 @@
                     selectedStudent.value = null;
                     showManageClassModal.value = false;
                     
-                    saveDataToCloud();
-                    alert("Đã cập nhật danh sách lớp mới thành công!");
+                    // Xóa và lưu đè lên mây (Không cần gọi saveDataToDatabase() vì watch(history) sẽ tự gọi khi mảng bị reset về [])
+                    alert("Đã cập nhật danh sách lớp mới thành công lên hệ thống!");
                 }
             };
 
             const selectedStudent = ref(null);
             const activeTab = ref('positive');
-            
             const aiFeedback = ref('');
             const isAILoading = ref(false);
-
             const parentAIFeedback = ref('');
             const isParentAILoading = ref(false);
 
@@ -617,16 +216,12 @@
             const getStudentDisplayPoints = (student, weekScope) => {
                 if (!student || weekScope === 'none') return 0; 
                 if (weekScope === 'total') return Object.values(student.weeklyPoints).reduce((sum, val) => sum + val, 0);
-                
                 if (typeof weekScope === 'string' && weekScope.startsWith('month_')) {
                     const month = parseInt(weekScope.split('_')[1]);
                     let monthTotal = 0;
-                    for (let w = (month - 1) * 4 + 1; w <= month * 4; w++) {
-                        monthTotal += student.weeklyPoints[w] || 0;
-                    }
+                    for (let w = (month - 1) * 4 + 1; w <= month * 4; w++) monthTotal += student.weeklyPoints[w] || 0;
                     return monthTotal;
                 }
-                
                 return student.weeklyPoints[weekScope] || 0;
             };
 
@@ -634,8 +229,7 @@
                 if (currentViewWeek.value === 'total') return history.value.slice(0, 50);
                 if (typeof currentViewWeek.value === 'string' && currentViewWeek.value.startsWith('month_')) {
                     const month = parseInt(currentViewWeek.value.split('_')[1]);
-                    const startW = (month - 1) * 4 + 1;
-                    const endW = month * 4;
+                    const startW = (month - 1) * 4 + 1; const endW = month * 4;
                     return history.value.filter(h => h.week >= startW && h.week <= endW).slice(0, 40);
                 }
                 return history.value.filter(h => h.week === currentViewWeek.value).slice(0, 30);
@@ -645,50 +239,40 @@
                 if(!loggedInStudent.value || parentViewWeek.value === 'none') return []; 
                 let filtered = history.value.filter(h => h.studentName === loggedInStudent.value.name);
                 
-                if (parentViewWeek.value === 'total') {
-                    // All
-                } else if (typeof parentViewWeek.value === 'string' && parentViewWeek.value.startsWith('month_')) {
+                if (parentViewWeek.value === 'total') { /* All */ } 
+                else if (typeof parentViewWeek.value === 'string' && parentViewWeek.value.startsWith('month_')) {
                     const month = parseInt(parentViewWeek.value.split('_')[1]);
-                    const startW = (month - 1) * 4 + 1;
-                    const endW = month * 4;
+                    const startW = (month - 1) * 4 + 1; const endW = month * 4;
                     filtered = filtered.filter(h => h.week >= startW && h.week <= endW);
                 } else {
                     filtered = filtered.filter(h => h.week === parentViewWeek.value);
                 }
-                
                 return filtered.slice(0, 20); 
             });
 
-            const getSimulatedAIFeedback = () => {
-                isAILoading.value = true;
-                aiFeedback.value = "";
+            // Logic AI nhận xét giữ nguyên...
+            const getSimulatedAIFeedback = () => { /* Code cũ của bạn */ 
+                isAILoading.value = true; aiFeedback.value = "";
                 setTimeout(() => {
                     const totalPoints = getStudentDisplayPoints(selectedStudent.value, 'total');
                     const studentLogs = history.value.filter(h => h.studentName === selectedStudent.value.name).slice(0, 5);
                     let negativeCount = studentLogs.filter(l => l.points < 0).length;
                     let feedback = `Đánh giá học sinh ${selectedStudent.value.name}: `;
-                    
                     if (totalPoints > 100) feedback += "Em đang có phong độ học tập xuất sắc, thể hiện sự trưởng thành vượt bậc.";
                     else if (totalPoints > 60) feedback += "Em duy trì nề nếp tốt, tuy nhiên cần phát biểu bài nhiều hơn.";
                     else if (totalPoints > 20) feedback += "Học sinh có tiến bộ nhưng chưa ổn định, cần chú ý tác phong.";
                     else feedback += "Điểm thi đua đang ở mức báo động, cần trò chuyện riêng để tìm hiểu khó khăn.";
-
                     if (negativeCount >= 2) feedback += " (AI nhận thấy em có dấu hiệu vi phạm nội quy liên tục gần đây).";
-                    
-                    aiFeedback.value = feedback;
-                    isAILoading.value = false;
+                    aiFeedback.value = feedback; isAILoading.value = false;
                 }, 1500); 
             };
 
-            const getParentSimulatedAIFeedback = () => {
-                isParentAILoading.value = true;
-                parentAIFeedback.value = "";
-                
-                setTimeout(() => {
+            const getParentSimulatedAIFeedback = () => { /* Code cũ của bạn */
+                 isParentAILoading.value = true; parentAIFeedback.value = "";
+                 setTimeout(() => {
                     const points = getStudentDisplayPoints(loggedInStudent.value, parentViewWeek.value);
                     const logs = parentViewHistory.value; 
                     const negativeCount = logs.filter(l => l.points < 0).length;
-
                     let timeText = '';
                     let isMonth = typeof parentViewWeek.value === 'string' && parentViewWeek.value.startsWith('month_');
                     
@@ -700,7 +284,6 @@
                     else timeText = `Trong Tuần ${parentViewWeek.value}`;
                     
                     let feedback = `[${timeText}] `;
-
                     if (parentViewWeek.value === 'total') {
                          if(points > 100) feedback += "Chung cuộc, con đang phát triển rất tốt, cây đã bắt đầu đơm hoa kết trái. Gia đình có thể hoàn toàn yên tâm vào ý thức tự giác của con!";
                          else if (points > 40) feedback += "Nhìn chung, con đang từng bước trưởng thành và duy trì được nề nếp. Hãy tiếp tục đồng hành và động viên con phát huy!";
@@ -716,13 +299,8 @@
                         else if (points < 0) feedback += `Tuần này điểm thi đua của con đang bị âm (${points}đ). Trợ lý AI nhận thấy con có mắc lỗi vi phạm nội quy. Phụ huynh nên nhắc nhở nhẹ nhàng để con chú ý hơn.`;
                         else feedback += "Tuần này chưa ghi nhận hoạt động cộng hoặc trừ điểm nổi bật nào của con.";
                     }
-
-                    if (negativeCount > 0) {
-                        feedback += ` Trợ lý AI ghi nhận chi tiết có ${negativeCount} lượt vi phạm. Phụ huynh có thể xem ở danh sách bên dưới.`;
-                    }
-
-                    parentAIFeedback.value = feedback;
-                    isParentAILoading.value = false;
+                    if (negativeCount > 0) feedback += ` Trợ lý AI ghi nhận chi tiết có ${negativeCount} lượt vi phạm. Phụ huynh có thể xem ở danh sách bên dưới.`;
+                    parentAIFeedback.value = feedback; isParentAILoading.value = false;
                 }, 1200);
             };
 
@@ -730,19 +308,14 @@
             const negativeActions = [{ name: "Đi trễ", points: -2 }, { name: "Nói chuyện riêng", points: -10 }, { name: "Không thuộc bài", points: -5 }, { name: "Vi phạm giao thông", points: -20 }];
 
             const resetData = () => {
-                if(confirm("XÓA HẾT ĐIỂM: Bạn có chắc chắn muốn đặt lại điểm của CẢ 36 TUẦN về 0 không?")) {
+                if(confirm("XÓA HẾT ĐIỂM: Bạn có chắc chắn muốn đặt lại điểm của CẢ 36 TUẦN về 0 không? Dữ liệu trên mây cũng sẽ bị xóa!")) {
                     students.forEach(s => { for(let w = 1; w <= 36; w++) s.weeklyPoints[w] = 0; });
                     history.value = [];
                     selectedStudent.value = null;
-                    
-                    saveDataToCloud();
                 }
             };
 
-            const selectStudent = (student) => {
-                selectedStudent.value = student;
-                aiFeedback.value = ''; 
-            };
+            const selectStudent = (student) => { selectedStudent.value = student; aiFeedback.value = ''; };
 
             const addPoints = (action) => {
                 if (!selectedStudent.value || appMode.value !== 'teacher' || typeof currentViewWeek.value === 'string') return;
@@ -752,8 +325,6 @@
                 setTimeout(() => { student.animating = false; }, 400);
                 history.value.unshift({ studentName: student.name, action: action.name, points: action.points, week: currentViewWeek.value, time: new Date().toLocaleTimeString() });
                 if(history.value.length > 500) history.value.pop();
-                
-                saveDataToCloud();
             };
 
             const getPlantStage = (points) => {
@@ -776,17 +347,15 @@
             };
 
             return {
-                isDataLoaded,
                 schoolMonths,
                 appMode, teacherPasswordInput, parentCodeInput, parentPasswordInput, loginError, loggedInStudent, loginTeacher, loginParent, logout,
                 showChangePassword, oldPass, newPass, confirmPass, passMsg, passMsgType, changePassword,
                 showManageClassModal, newStudentListText, openManageClassModal, importNewClass, 
                 students, selectedStudent, activeTab, positiveActions, negativeActions, history, displayHistory, parentViewHistory, currentViewWeek,
                 parentViewWeek, getParentViewLabel, parentAIFeedback, isParentAILoading, getParentSimulatedAIFeedback,
-                aiFeedback, isAILoading, getSimulatedAIFeedback, resetData, selectStudent, addPoints, getStudentDisplayPoints, getPlantStage, getPlantIcon, getIconColor, getPointsColor, getViewLabel
+                aiFeedback, isAILoading, getSimulatedAIFeedback, resetData, selectStudent, addPoints, getStudentDisplayPoints, getPlantStage, getPlantIcon, getIconColor, getPointsColor, getViewLabel,
+                isSyncing
             }
         }
     }).mount('#app')
 </script>
-</body>
-</html>
